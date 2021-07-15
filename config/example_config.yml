@@ -28,24 +28,18 @@
 # Best buy makes us click the add to cart button twice to enter Queue System.
 # Don't worry about script buying two graphics cards though. The script will only buy one.
 # As well, Best buy won't let you check out more than 1 item.
-# To actually avoid buying HDMI cable, you can comment out Line 220. Uncomment the line when you are done testing.
+# To actually avoid buying HDMI cable, set test_mode to 'True'. Set to 'False' when you are done testing.
 
 # 1. General Settings
 test_mode: True  # Set test_mode to True when testing bot checkout process, and set it to False when your done testing.
 headless_mode: False  # Set False for testing. If True, it will hide Firefox in background for faster checkout speed.
+docker_mode: False # Set False to run in Pycharm. If True, will only run in Docker.
 webpage_refresh_timer: 3  # Default 3 seconds. If slow internet and the page isn't fully loading, increase this.
-# The number of workers can be increased. Note this will throttle how many products can be watched. Having 10 items in the product list
-# but workerCount to 5 will mean only the first 5 products will be watched.
-# ***Warning*** setting this value too high and/or having too many items in your product list could result in very poor system performance, and your internet may not support that load.
-# If increasing workerCount, then it's also recommended to set 'options.headless' in the driver configuration to 'true'
-# All will run at the same time. You could end up purchasing all of the products you have specified in the list.
-workerCount: 5
 
-# 2. Product URLS: Add each product 'short hand product name' : 'product url' Repeat for as many products as desired. '#' comments out the product and the script will not attempt to purchase those commented products.
-products:
-  3080_FE: https://www.bestbuy.com/site/nvidia-geforce-rtx-3080-10gb-gddr6x-pci-express-4-0-graphics-card-titanium-and-black/6429440.p?skuId=6429440
-  #Ryzen_5800x: https://www.bestbuy.com/site/amd-ryzen-7-5800x-4th-gen-8-core-16-threads-unlocked-desktop-processor-without-cooler/6439000.p?skuId=6439000
-  #cheap_hdmi_cable: https://www.bestbuy.com/site/dynex-6-hdmi-cable-black/6405508.p?skuId=6405508
+# 2. Product url: '#' comments out the product and the script will not attempt to purchase those commented products.
+product: https://www.bestbuy.com/site/nvidia-geforce-rtx-3080-10gb-gddr6x-pci-express-4-0-graphics-card-titanium-and-black/6429440.p?skuId=6429440
+#product: https://www.bestbuy.com/site/amd-ryzen-7-5800x-4th-gen-8-core-16-threads-unlocked-desktop-processor-without-cooler/6439000.p?skuId=6439000
+#product: https://www.bestbuy.com/site/dynex-6-hdmi-cable-black/6405508.p?skuId=6405508
 # 3. Firefox Profile
 firefox_profile: C:\Users\Trebor\AppData\Roaming\Mozilla\Firefox\Profiles\t6inpqro.Robert-1613116705360
 # 4. Credit Card CVV Number

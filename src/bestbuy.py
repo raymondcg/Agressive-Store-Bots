@@ -23,6 +23,7 @@ with open('../config/config.yml', 'r') as file:
 # 1. General Settings
 test_mode = configuration_file["test_mode"]
 headless_mode = configuration_file["headless_mode"]
+docker_mode = configuration_file["docker_mode"]
 webpage_refresh_timer = configuration_file["webpage_refresh_timer"]
 
 # 2. Product URLs
@@ -34,7 +35,12 @@ def create_driver():
     """Creating firefox driver to control webpage. Please add your firefox profile down below."""
     options = Options()
     options.headless = headless_mode
-    profile = webdriver.FirefoxProfile(configuration_file["firefox_profile"])
+    if not docker_mode:
+        print("Pycharm Mode")
+        profile = webdriver.FirefoxProfile(configuration_file["firefox_profile"])
+    if docker_mode:
+        print("Docker Mode")
+        profile = webdriver.FirefoxProfile("/usr/firefox/profile")
     web_driver = webdriver.Firefox(profile, options=options, executable_path=GeckoDriverManager().install())
     web_driver.set_window_size(960, 900)
     return web_driver
@@ -211,7 +217,6 @@ def searching_for_product(driver):
                 # Final Checkout.
                 try:
                     wait2.until(EC.presence_of_element_located((By.XPATH, "//*[@class='btn btn-lg btn-block btn-primary button__fast-track']")))
-                    # comment the one down below. vv
                     if not test_mode:
                         print("Product Checkout Completed.")
                         driver_click(driver, 'xpath', 'btn btn-lg btn-block btn-primary button__fast-track')
