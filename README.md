@@ -29,8 +29,9 @@ If you guys need instructions to set up Newegg Bot or Amazon Bot go to my Google
 **3. Go to terminal and type:**
 1. `pip install beautifulsoup4`
 2. `pip install selenium`
-3. `pip install webdriver-manager==3.4.0`
+3. `pip install webdriver-manager==3.4.2`
 4. `pip install twilio`
+5. `pip install pyyaml`
 
 	![](images/step3.png)
 
@@ -40,7 +41,7 @@ If you guys need instructions to set up Newegg Bot or Amazon Bot go to my Google
 **5. Copy and paste bestbuy aggressive bot script in that python file you just created.**
 ![](images/step5.png)
 
-**6. Fill out the script with your personal information.**
+**6. Create config.yml file and fill out the script with your personal information. See example_config.yml for example.**
 
 	* Twilio Information(optional)
 
@@ -53,3 +54,19 @@ If you guys need instructions to set up Newegg Bot or Amazon Bot go to my Google
 **7. To run bot, click run then select bestbuy.**
 
 ![](images/step7.png)
+
+## Use via Docker
+
+* Build
+
+```bash
+docker build -t bestbuy-bot:latest .
+```
+
+* Run
+
+```bash
+docker compose down
+docker compose up -d
+docker logs -f bestbuy-bot
+```

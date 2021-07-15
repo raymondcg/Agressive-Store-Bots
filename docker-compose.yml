@@ -1,0 +1,9 @@
+version: "3.2"
+services:
+    bestbuy-bot:
+        image: bestbuy-bot
+        container_name: bestbuy-bot
+        privileged: true
+        volumes:
+          - ./config:/usr/src/config
+          - C:\Users\gille\AppData\Roaming\Mozilla\Firefox\Profiles\l9v2h97e.default-release:/usr/firefox/profile
