@@ -2,6 +2,7 @@ import bs4
 import sys
 import time
 import yaml
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from twilio.rest import Client
 from twilio.base.exceptions import TwilioRestException
@@ -14,7 +15,19 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.firefox.options import Options
 from webdriver_manager.firefox import GeckoDriverManager
 
-formatTimeString = "%m/%d/%Y %H:%M:%S"
+# ---------------------------------------------Please Read--------------------------------------------------------------
+
+# Updated: 6/15/2021
+
+# Hello everyone! Welcome to my Best Buy script.
+# Let's go over the checklist for the script to run properly.
+#   1. Create 'config.yml' file with your configurations set
+#      1. General Settings
+#      2. Product URL
+#      3. Firefox Profile
+#      4. Credit Card CVV Number
+#      5. Twilio Account
+
 
 # Further instructions in 'example_config.yml' for how to create your own config.yml file. It is done this way to ensure that the configuration file is never uploaded to the internet.
 with open('../config/config.yml', 'r') as file:
@@ -23,24 +36,21 @@ with open('../config/config.yml', 'r') as file:
 # 1. General Settings
 test_mode = configuration_file["test_mode"]
 headless_mode = configuration_file["headless_mode"]
-docker_mode = configuration_file["docker_mode"]
 webpage_refresh_timer = configuration_file["webpage_refresh_timer"]
+workerCount = configuration_file["workerCount"]
 
 # 2. Product URLs
-url = configuration_file["product"]
+urls = {}
+for productName, productUrl in configuration_file["products"].items():
+    urls.update({productName: productUrl})
 
 
 # 3. Firefox Profile
 def create_driver():
-    """Creating firefox driver to control webpage. Please add your firefox profile down below."""
+    """Creating firefox driver to control webpage."""
     options = Options()
     options.headless = headless_mode
-    if not docker_mode:
-        print("Pycharm Mode")
-        profile = webdriver.FirefoxProfile(configuration_file["firefox_profile"])
-    if docker_mode:
-        print("Docker Mode")
-        profile = webdriver.FirefoxProfile("/usr/firefox/profile")
+    profile = webdriver.FirefoxProfile(configuration_file["firefox_profile"])
     web_driver = webdriver.Firefox(profile, options=options, executable_path=GeckoDriverManager().install())
     web_driver.set_window_size(960, 900)
     return web_driver
@@ -61,11 +71,11 @@ client = Client(accountSid, authToken)
 # ----------------------------------------------------------------------------------------------------------------------
 
 
-def time_sleep(x, driver):
+def time_sleep(x, driver, productName):
     """Sleep timer for page refresh."""
     for i in range(x, -1, -1):
-        time1 = datetime.now().strftime(formatTimeString)
-        print(f"{time1} Monitoring Page. Refreshing in {i} seconds")
+        dateTimeObj = datetime.now()
+        print(f"{dateTimeObj} - Monitoring Page {productName}: {i} seconds")
         time.sleep(1)
     driver.execute_script('window.localStorage.clear();')
     driver.refresh()
@@ -101,9 +111,9 @@ def driver_click(driver, find_type, selector):
                 driver.implicitly_wait(1)
 
 
-def searching_for_product(driver):
+def searching_for_product(driver, productName):
     """Scanning for product."""
-    driver.get(url)
+    driver.get(urls[productName])
 
     print("\nWelcome To Bestbuy Bot! Join The Discord To find out What Week Bestbuy drops GPU's and Consoles!")
     print("Discord: https://discord.gg/qQDvwT6q3e")
@@ -123,27 +133,28 @@ def searching_for_product(driver):
                 'class': 'btn btn-primary btn-lg btn-block btn-leading-ficon add-to-cart-button'})
 
             if add_to_cart_button:
-                print(f'Add To Cart Button Found!')
+                print(f"{productName}: Add To Cart Button Found!")
 
                 # Queue System Logic.
                 try:
                     # Entering Queue: Clicking "add to cart" 2nd time to enter queue.
                     wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, ".add-to-cart-button")))
                     driver_click(driver, 'css', '.add-to-cart-button')
-                    print("Clicked Add to Cart Button. Now sending message to your phone.")
-                    print("You are now added to Best Buy's Queue System. Page will be refreshing. Please be patient. It could take a few minutes.\n")
+                    print(f"{productName}: Clicked Add to Cart Button. Now sending message to your phone.")
+
+                    print(f"{productName}: You are now added to Best Buy's Queue System. Page will be refreshing. Please be patient. It could take a few minutes.\n")
 
                     # Sleep timer is here to give Please Wait Button to appear. Please don't edit this.
                     time.sleep(5)
                     driver.refresh()
                     time.sleep(5)
                 except (NoSuchElementException, TimeoutException) as error:
-                    print(f'Queue System Error: ${error}')
+                    print(f"{productName}: Queue System Error: ${error}")
 
                 # Sending Text Message To let you know you are in the queue system.
                 try:
                     client.messages.create(to=toNumber, from_=fromNumber,
-                                           body=f'Your In Queue System on Bestbuy! {url}')
+                                           body=f'Your In Queue System on Bestbuy! {urls[productName]}')
                 except (NameError, TwilioRestException):
                     pass
 
@@ -162,7 +173,8 @@ def searching_for_product(driver):
                             driver.refresh()
                             time.sleep(15)
                         else:  # When Add to Cart appears. This will click button.
-                            print("Add To Cart Button Clicked A Second Time.\n")
+                            print("Add To Cart Button Clicked A Second Time.")
+                            print(f"{productName}: Add To Cart Button Clicked A Second Time.\n")
                             wait2.until(
                                 EC.presence_of_element_located((By.CSS_SELECTOR, ".add-to-cart-button")))
                             time.sleep(2)
@@ -170,7 +182,7 @@ def searching_for_product(driver):
                             time.sleep(2)
                             break
                     except(NoSuchElementException, TimeoutException) as error:
-                        print(f'Queue System Refresh Error: ${error}')
+                        print(f"{productName}: Queue System Refresh Error: ${error}")
 
                 # Going To Cart Process.
                 driver.get('https://www.bestbuy.com/cart')
@@ -181,14 +193,15 @@ def searching_for_product(driver):
                         EC.presence_of_element_located((By.XPATH, "//*[@class='btn btn-lg btn-block btn-primary']")))
                     time.sleep(1)
                     driver_click(driver, 'xpath', 'btn btn-lg btn-block btn-primary')
-                    print("Item Is Still In Cart.")
+                    print(f"{productName}: Item Is Still In Cart.")
                 except (NoSuchElementException, TimeoutException):
-                    print("Item is not in cart anymore. Retrying..")
+                    print(f"{productName}: Item is not in cart anymore. Retrying..")
                     time_sleep(3, driver)
-                    searching_for_product(driver)
+                    searching_for_product(driver, productName)
 
                 # Logging Into Account.
-                print("\nAttempting to Login. Firefox should remember your login info to auto login.")
+                print("Attempting to Login. Firefox should remember your login info to auto login.")
+                print(f"\n{productName}: Attempting to Login. Firefox should remember your login info to auto login.")
                 print("If you're having trouble with auto login. Close all firefox windows.")
                 print("Open firefox manually, and go to bestbuy's website. While Sign in, make sure to click 'Keep Me Logged In' button.")
                 print("Then run bot again.\n")
@@ -199,13 +212,13 @@ def searching_for_product(driver):
                     time.sleep(2)
                     shipping_class = driver.find_element_by_xpath("//*[@class='ispu-card__switch']")
                     shipping_class.click()
-                    print("Clicking Shipping Option.")
+                    print(f"{productName}: Clicking Shipping Option.")
                 except (NoSuchElementException, TimeoutException, ElementNotInteractableException, ElementClickInterceptedException) as error:
-                    print(f'shipping error: {error}')
+                    print(f"{productName}: shipping error: {error}")
 
                 # Trying CVV
                 try:
-                    print("\nTrying CVV Number.\n")
+                    print(f"\n{productName}: Trying CVV Number.\n")
                     wait2.until(EC.presence_of_element_located((By.ID, "credit-card-cvv")))
                     time.sleep(1)
                     security_code = driver.find_element_by_id("credit-card-cvv")
@@ -217,35 +230,35 @@ def searching_for_product(driver):
                 # Final Checkout.
                 try:
                     wait2.until(EC.presence_of_element_located((By.XPATH, "//*[@class='btn btn-lg btn-block btn-primary button__fast-track']")))
+                    print(f"{productName}: clicked checkout")
+                    # comment the one down below. vv
                     if not test_mode:
-                        print("Product Checkout Completed.")
+                        print(f"{productName}: Product Checkout Completed.")
                         driver_click(driver, 'xpath', 'btn btn-lg btn-block btn-primary button__fast-track')
                     if test_mode:
-                        print("Test Mode - Product Checkout Completed.")
+                        print(f"{productName}: Test Mode - Product Checkout Completed.")
                 except (NoSuchElementException, TimeoutException, ElementNotInteractableException):
-                    print("Could Not Complete Checkout.")
+                    print(f"{productName}: Could Not Complete Checkout.")
 
                 # Completed Checkout.
-                print('Order Placed!')
+                print(f"{productName}: Order Placed!")
                 time.sleep(1800)
                 driver.quit()
 
         except (NoSuchElementException, TimeoutException) as error:
-            print(f'error is: {error}')
+            print(f"{productName}: error is: {error}")
 
-        time_sleep(webpage_refresh_timer, driver)
+        time_sleep(webpage_refresh_timer, driver, productName)
 
 
 def run():
-    print("Starting purchaser")
-    driver = create_driver()
-    try:
-        searching_for_product(driver)
-    except Exception as e:
-        template = "An exception of type {0} occurred. Arguments:\n{1!r}"
-        message = template.format(type(e).__name__, e.args)
-        print(message)
-    print("Purchaser complete!")
+    print("Starting threaded purchasers")
+    with ThreadPoolExecutor(max_workers=workerCount) as executor:
+        for productName in urls:
+            driver = create_driver()
+            future = executor.submit(searching_for_product, driver, productName)
+            time.sleep(5)
+    print("All purchasers complete")
 
 
 if __name__ == '__main__':
