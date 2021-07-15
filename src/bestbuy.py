@@ -1,6 +1,8 @@
 import bs4
 import sys
 import time
+import yaml
+from datetime import datetime
 from twilio.rest import Client
 from twilio.base.exceptions import TwilioRestException
 from selenium import webdriver
@@ -12,66 +14,43 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.firefox.options import Options
 from webdriver_manager.firefox import GeckoDriverManager
 
-# ---------------------------------------------Please Read--------------------------------------------------------------
+formatTimeString = "%m/%d/%Y %H:%M:%S"
 
-# Updated: 6/15/2021
+# Further instructions in 'example_config.yml' for how to create your own config.yml file. It is done this way to ensure that the configuration file is never uploaded to the internet.
+with open('../config/config.yml', 'r') as file:
+    configuration_file = yaml.safe_load(file)
 
-# Hello everyone! Welcome to my Best Buy script.
-# Let's go over the checklist for the script to run properly.
-#   1. Product URL
-#   2. Firefox Profile
-#   3. Credit Card CVV Number
-#   4. Twilio Account (Optional)
+# 1. General Settings
+test_mode = configuration_file["test_mode"]
+headless_mode = configuration_file["headless_mode"]
+webpage_refresh_timer = configuration_file["webpage_refresh_timer"]
 
-# This Script only accepts Product URL's that look like this. I hope you see the difference between page examples.
-
-# Example 1 - Nvidia RTX 3080:
-# https://www.bestbuy.com/site/nvidia-geforce-rtx-3080-10gb-gddr6x-pci-express-4-0-graphics-card-titanium-and-black/6429440.p?skuId=6429440
-# Example 2 - PS5:
-# https://www.bestbuy.com/site/sony-playstation-5-console/6426149.p?skuId=6426149
-# Example 3 - Ryzen 5600x:
-# https://www.bestbuy.com/site/amd-ryzen-5-5600x-4th-gen-6-core-12-threads-unlocked-desktop-processor-with-wraith-stealth-cooler/6438943.p?skuId=6438943
-
-# This Script does not accept Product URL's that look like this.
-# https://www.bestbuy.com/site/searchpage.jsp?st=rtx+3080&_dyncharset=UTF-8&_dynSessConf=&id=pcat17071&type=page&sc=Global&cp=1&nrp=&sp=&qp=&list=n&af=true&iht=y&usc=All+Categories&ks=960&keys=keys
-
-# Highly Recommend To set up Twilio Account to receive text messages. So if bot doesn't work you'll at least get a phone
-# text message with the url link. You can click the link and try manually purchasing on your phone.
-
-# Twilio is free. Get it Here.
-# www.twilio.com/referral/BgLBXx
-
-# -----------------------------------------------Steps To Complete------------------------------------------------------
-
-# Test Link (Ryzen 5800x) - The Ryzen 5800x is always available and still uses Bestbuy's Queue System.
-# https://www.bestbuy.com/site/amd-ryzen-7-5800x-4th-gen-8-core-16-threads-unlocked-desktop-processor-without-cooler/6439000.p?skuId=6439000
-test_mode = True  # Set test_mode to True when testing bot checkout process, and set it to False when your done testing.
-headless_mode = False  # Set False for testing. If True, it will hide Firefox in background for faster checkout speed.
-webpage_refresh_timer = 3  # Default 3 seconds. If slow internet and the page isn't fully loading, increase this.
-
-# 1. Product URL
-url = 'https://www.bestbuy.com/site/amd-ryzen-7-5800x-4th-gen-8-core-16-threads-unlocked-desktop-processor-without-cooler/6439000.p?skuId=6439000'
+# 2. Product URLs
+url = configuration_file["product"]
 
 
-# 2. Firefox Profile
+# 3. Firefox Profile
 def create_driver():
     """Creating firefox driver to control webpage. Please add your firefox profile down below."""
     options = Options()
     options.headless = headless_mode
-    profile = webdriver.FirefoxProfile(r'C:\Users\Trebor\AppData\Roaming\Mozilla\Firefox\Profiles\t6inpqro.Robert-1613116705360')
+    profile = webdriver.FirefoxProfile(configuration_file["firefox_profile"])
     web_driver = webdriver.Firefox(profile, options=options, executable_path=GeckoDriverManager().install())
+    web_driver.set_window_size(960, 900)
     return web_driver
 
 
-# 3. credit card CVV Number
-CVV = '123'  # You can enter your CVV number here in quotes.
+# 4. credit card CVV Number
+CVV = configuration_file["cvv"]
 
-# 4. Twilio Account
-toNumber = 'Your_Phone_Number'
-fromNumber = 'Twilio_Phone_Number'
-accountSid = 'Twilio_SSID'
-authToken = 'Twilio_AuthToken'
+
+# 5. Twilio Account
+toNumber = configuration_file["twilio"]["toNumber"]
+fromNumber = configuration_file["twilio"]["fromNumber"]
+accountSid = configuration_file["twilio"]["accountSid"]
+authToken = configuration_file["twilio"]["authToken"]
 client = Client(accountSid, authToken)
+
 
 # ----------------------------------------------------------------------------------------------------------------------
 
@@ -79,15 +58,14 @@ client = Client(accountSid, authToken)
 def time_sleep(x, driver):
     """Sleep timer for page refresh."""
     for i in range(x, -1, -1):
-        sys.stdout.write('\r')
-        sys.stdout.write('Monitoring Page. Refreshing in{:2d} seconds'.format(i))
-        sys.stdout.flush()
+        time1 = datetime.now().strftime(formatTimeString)
+        print(f"{time1} Monitoring Page. Refreshing in {i} seconds")
         time.sleep(1)
     driver.execute_script('window.localStorage.clear();')
     driver.refresh()
 
 
-def extract_page():
+def extract_page(driver):
     """bs4 page parser."""
     html = driver.page_source
     soup = bs4.BeautifulSoup(html, 'html.parser')
@@ -130,7 +108,7 @@ def searching_for_product(driver):
     print("Bot deployed!\n")
 
     while True:
-        soup = extract_page()
+        soup = extract_page(driver)
         wait = WebDriverWait(driver, 15)
         wait2 = WebDriverWait(driver, 5)
 
@@ -253,6 +231,17 @@ def searching_for_product(driver):
         time_sleep(webpage_refresh_timer, driver)
 
 
-if __name__ == '__main__':
+def run():
+    print("Starting purchaser")
     driver = create_driver()
-    searching_for_product(driver)
+    try:
+        searching_for_product(driver)
+    except Exception as e:
+        template = "An exception of type {0} occurred. Arguments:\n{1!r}"
+        message = template.format(type(e).__name__, e.args)
+        print(message)
+    print("Purchaser complete!")
+
+
+if __name__ == '__main__':
+    run()
